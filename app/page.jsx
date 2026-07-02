@@ -1,6 +1,16 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import {
+  ScanLine,
+  CheckCircle2,
+  AlertTriangle,
+  Mail,
+  Copy,
+  Check,
+} from "lucide-react";
+import InputPanel from "./components/InputPanel";
+import ResumeGenerator from "./components/ResumeGenerator";
 
 const SAMPLE_JD = `AI Product Manager - Series B startup
 
@@ -52,7 +62,7 @@ export default function Home() {
     setError("");
     setResult(null);
     if (!jobDescription.trim() || !resume.trim()) {
-      setError("Paste both a job description and your resume before scanning.");
+      setError("Add both a job description and your resume before scanning.");
       return;
     }
     setLoading(true);
@@ -63,9 +73,7 @@ export default function Home() {
         body: JSON.stringify({ jobDescription, resume }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Something went wrong.");
-      }
+      if (!res.ok) throw new Error(data.error || "Something went wrong.");
       setResult(data);
     } catch (e) {
       setError(e.message || "Something went wrong.");
@@ -88,119 +96,141 @@ export default function Home() {
   }
 
   return (
-    <main className="wrap">
-      <div className="eyebrow">Job-Fit Signal Scanner</div>
-      <h1>Know your fit before you hit send.</h1>
-      <p className="sub">
-        Paste a job description and your resume. Get a scored breakdown of
-        your fit, the gaps a recruiter will notice first, and a draft
-        outreach email — before you spend an hour writing one from scratch.
-      </p>
+    <>
+      <nav className="topnav">
+        <div className="brand">
+          <ScanLine size={16} />
+          <span>Job-Fit Signal Scanner</span>
+        </div>
+        <a
+          href="https://github.com"
+          target="_blank"
+          rel="noreferrer"
+          className="nav-link"
+        >
+          Built by Aradhya Katiyar
+        </a>
+      </nav>
 
-      <div className="grid">
-        <div className="field">
-          <label htmlFor="jd">Job description</label>
-          <textarea
+      <main className="wrap">
+        <div className="eyebrow">Step 1 — Add your inputs</div>
+        <h1>Know your fit before you hit send.</h1>
+        <p className="sub">
+          Add a job description and your resume — paste text, or upload a
+          PDF, Word doc, or screenshot. Get a scored fit breakdown, the gaps
+          a recruiter will notice, a draft outreach email, and a resume
+          rewritten for this exact role.
+        </p>
+
+        <div className="grid">
+          <InputPanel
             id="jd"
-            placeholder="Paste the full job posting here..."
+            label="Job description"
             value={jobDescription}
-            onChange={(e) => setJobDescription(e.target.value)}
+            onChange={setJobDescription}
+            placeholder="Paste the full job posting here..."
           />
-        </div>
-        <div className="field">
-          <label htmlFor="resume">Your resume</label>
-          <textarea
+          <InputPanel
             id="resume"
-            placeholder="Paste your resume text here..."
+            label="Your resume"
             value={resume}
-            onChange={(e) => setResume(e.target.value)}
+            onChange={setResume}
+            placeholder="Paste your resume text here..."
           />
         </div>
-      </div>
 
-      <div className="actions">
-        <button className="scan" onClick={handleScan} disabled={loading}>
-          {loading ? "Scanning..." : "Scan fit"}
-        </button>
-        <button className="sample" onClick={loadSample} disabled={loading}>
-          Load a sample to try it
-        </button>
-      </div>
-
-      {error && <div className="error-box">ERROR — {error}</div>}
-
-      {loading && (
-        <div className="scan-panel">
-          <div className="scan-line" />
-          <div className="scan-status">{STATUS_MESSAGES[statusIdx]}</div>
+        <div className="actions">
+          <button className="scan" onClick={handleScan} disabled={loading}>
+            {loading ? "Scanning..." : "Scan fit"}
+          </button>
+          <button className="sample" onClick={loadSample} disabled={loading}>
+            Load a sample to try it
+          </button>
         </div>
-      )}
 
-      {result && !loading && (
-        <div className="results">
-          <div className="score-panel">
-            <div>
-              <div className="score-number">
-                {result.overall_score}
-                <span>/100</span>
-              </div>
-              <div className="score-label">Signal strength</div>
-            </div>
-            <div className="bars">
-              {result.categories?.map((c) => (
-                <div className="bar-row" key={c.name}>
-                  <div className="bar-name">{c.name}</div>
-                  <div className="bar-track">
-                    <div
-                      className="bar-fill"
-                      style={{ width: `${c.score}%` }}
-                    />
-                  </div>
-                  <div className="bar-value">{c.score}</div>
+        {error && (
+          <div className="error-box">
+            <AlertTriangle size={14} /> {error}
+          </div>
+        )}
+
+        {loading && (
+          <div className="scan-panel">
+            <div className="scan-line" />
+            <div className="scan-status">{STATUS_MESSAGES[statusIdx]}</div>
+          </div>
+        )}
+
+        {result && !loading && (
+          <div className="results">
+            <div className="eyebrow section-eyebrow">Step 2 — Your signal read</div>
+
+            <div className="score-panel">
+              <div>
+                <div className="score-number">
+                  {result.overall_score}
+                  <span>/100</span>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="panel-block">
-            <h3>Strengths</h3>
-            <ul className="list strengths">
-              {result.strengths?.map((s, i) => (
-                <li key={i}>{s}</li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="panel-block">
-            <h3>Gaps a recruiter will notice</h3>
-            <ul className="list gaps">
-              {result.gaps?.map((g, i) => (
-                <li key={i}>{g}</li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="panel-block">
-            <h3>Draft outreach email</h3>
-            <div className="email-box">
-              <button className="copy" onClick={copyEmail}>
-                {copied ? "Copied" : "Copy"}
-              </button>
-              <div className="email-subject">
-                Subject: {result.outreach_email?.subject}
+                <div className="score-label">Signal strength</div>
               </div>
-              <div>{result.outreach_email?.body}</div>
+              <div className="bars">
+                {result.categories?.map((c) => (
+                  <div className="bar-row" key={c.name}>
+                    <div className="bar-name">{c.name}</div>
+                    <div className="bar-track">
+                      <div className="bar-fill" style={{ width: `${c.score}%` }} />
+                    </div>
+                    <div className="bar-value">{c.score}</div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        </div>
-      )}
 
-      <footer>
-        Scoring is generated by an LLM against four weighted categories —
-        skills match, experience level, domain relevance, and keyword
-        alignment — and is meant as a directional signal, not a guarantee.
-        Built by Aradhya Katiyar.
-      </footer>
-    </main>
+            <div className="panel-block">
+              <h3><CheckCircle2 size={14} /> Strengths</h3>
+              <ul className="list strengths">
+                {result.strengths?.map((s, i) => (
+                  <li key={i}>{s}</li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="panel-block">
+              <h3><AlertTriangle size={14} /> Gaps a recruiter will notice</h3>
+              <ul className="list gaps">
+                {result.gaps?.map((g, i) => (
+                  <li key={i}>{g}</li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="panel-block">
+              <h3><Mail size={14} /> Draft outreach email</h3>
+              <div className="email-box">
+                <button className="copy" onClick={copyEmail}>
+                  {copied ? <Check size={12} /> : <Copy size={12} />}
+                  {copied ? "Copied" : "Copy"}
+                </button>
+                <div className="email-subject">
+                  Subject: {result.outreach_email?.subject}
+                </div>
+                <div>{result.outreach_email?.body}</div>
+              </div>
+            </div>
+
+            <div className="eyebrow section-eyebrow">Step 3 — Tailor your resume</div>
+            <ResumeGenerator jobDescription={jobDescription} resume={resume} />
+          </div>
+        )}
+
+        <footer>
+          Scoring is generated by an AI model against four weighted
+          categories — skills match, experience level, domain relevance, and
+          keyword alignment — and is meant as a directional signal, not a
+          guarantee. Powered by OpenRouter free models. Built by Aradhya
+          Katiyar.
+        </footer>
+      </main>
+    </>
   );
 }

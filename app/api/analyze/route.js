@@ -1,3 +1,5 @@
+import { callOpenRouter, parseJsonResponse, ConfigError, UpstreamError } from "../../lib/openrouter";
+
 export const runtime = "nodejs";
 
 const SYSTEM_PROMPT = `You are a hiring-signal analyst. You compare a job description against a candidate resume and output ONLY valid JSON (no markdown fences, no commentary) matching exactly this shape:
@@ -18,7 +20,7 @@ const SYSTEM_PROMPT = `You are a hiring-signal analyst. You compare a job descri
   }
 }
 
-Be honest and specific. Do not inflate scores to be encouraging. If the resume is a weak fit, say so in the gaps and reflect it in the score. Ground every strength and gap in actual text from the job description or resume — never invent details.`;
+Be honest and specific. Do not inflate scores to be encouraging. If the resume is a weak fit, say so in the gaps and reflect it in the score. Ground every strength and gap in actual text from the job description or resume - never invent details. Output ONLY the JSON object, nothing before or after it.`;
 
 export async function POST(req) {
   let body;
@@ -36,66 +38,28 @@ export async function POST(req) {
     );
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return Response.json(
-      {
-        error:
-          "Server is missing ANTHROPIC_API_KEY. Add it in Vercel → Project Settings → Environment Variables, then redeploy.",
-      },
-      { status: 500 }
-    );
-  }
-
   try {
-    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-5",
-        max_tokens: 1200,
-        system: SYSTEM_PROMPT,
-        messages: [
-          {
-            role: "user",
-            content: `JOB DESCRIPTION:\n${jobDescription}\n\nCANDIDATE RESUME:\n${resume}`,
-          },
-        ],
-      }),
+    const raw = await callOpenRouter({
+      systemPrompt: SYSTEM_PROMPT,
+      userContent: `JOB DESCRIPTION:\n${jobDescription}\n\nCANDIDATE RESUME:\n${resume}`,
     });
+    const parsed = parseJsonResponse(raw);
 
-    if (!anthropicRes.ok) {
-      const errText = await anthropicRes.text();
+    if (typeof parsed.overall_score !== "number" || !Array.isArray(parsed.categories)) {
       return Response.json(
-        { error: `Claude API error (${anthropicRes.status}): ${errText.slice(0, 300)}` },
-        { status: 502 }
-      );
-    }
-
-    const data = await anthropicRes.json();
-    const textBlock = data.content?.find((b) => b.type === "text");
-    const raw = textBlock?.text || "";
-    const cleaned = raw.replace(/```json/g, "").replace(/```/g, "").trim();
-
-    let parsed;
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch {
-      return Response.json(
-        { error: "Model output wasn't valid JSON. Try scanning again." },
+        { error: "The model's response was missing expected fields. Try scanning again." },
         { status: 502 }
       );
     }
 
     return Response.json(parsed);
   } catch (err) {
-    return Response.json(
-      { error: err.message || "Unexpected server error." },
-      { status: 500 }
-    );
+    if (err instanceof ConfigError) {
+      return Response.json({ error: err.message }, { status: 500 });
+    }
+    if (err instanceof UpstreamError) {
+      return Response.json({ error: err.message }, { status: 502 });
+    }
+    return Response.json({ error: err.message || "Unexpected server error." }, { status: 500 });
   }
 }
